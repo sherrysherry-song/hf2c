@@ -4,8 +4,6 @@ from torch.nn import init
 import torch.nn.functional as F
 from resnet import resnet50, resnet18
 import random
-
-
 class Normalize(nn.Module):
     def __init__(self, power=2):
         super(Normalize, self).__init__()
@@ -16,32 +14,33 @@ class Normalize(nn.Module):
         out = x.div(norm)
         return out
 
-
 class Non_local(nn.Module):
     def __init__(self, in_channels, reduc_ratio=2):
         super(Non_local, self).__init__()
 
         self.in_channels = in_channels
-        self.inter_channels = reduc_ratio // reduc_ratio
+        self.inter_channels = reduc_ratio//reduc_ratio
 
         self.g = nn.Sequential(
             nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1, stride=1,
-                      padding=0),
+                    padding=0),
         )
 
         self.W = nn.Sequential(
             nn.Conv2d(in_channels=self.inter_channels, out_channels=self.in_channels,
-                      kernel_size=1, stride=1, padding=0),
+                    kernel_size=1, stride=1, padding=0),
             nn.BatchNorm2d(self.in_channels),
         )
         nn.init.constant_(self.W[1].weight, 0.0)
         nn.init.constant_(self.W[1].bias, 0.0)
 
+
+
         self.theta = nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels,
-                               kernel_size=1, stride=1, padding=0)
+                             kernel_size=1, stride=1, padding=0)
 
         self.phi = nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels,
-                             kernel_size=1, stride=1, padding=0)
+                           kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         '''
@@ -83,13 +82,13 @@ def weights_init_kaiming(m):
         init.normal_(m.weight.data, 1.0, 0.01)
         init.zeros_(m.bias.data)
 
-
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight.data, 0, 0.001)
         if m.bias:
             init.zeros_(m.bias.data)
+
 
 
 class visible_module(nn.Module):
@@ -110,8 +109,8 @@ class visible_module(nn.Module):
             self.visible.relu = model_v.relu
             self.visible.maxpool = model_v.maxpool
             if self.share_net > 1:
-                for i in range(1, self.share_net):
-                    setattr(self.visible, 'layer' + str(i), getattr(model_v, 'layer' + str(i)))
+                for i in range(1, self.share_net):               
+                    setattr(self.visible,'layer'+str(i), getattr(model_v,'layer'+str(i)))
 
     def forward(self, x):
         if self.share_net == 0:
@@ -124,12 +123,11 @@ class visible_module(nn.Module):
 
             if self.share_net > 1:
                 for i in range(1, self.share_net):
-                    x = getattr(self.visible, 'layer' + str(i))(x)
+                    x = getattr(self.visible, 'layer'+str(i))(x)
             return x
 
-
 class Midshare_module(nn.Module):
-    def __init__(self, arch='resnet50', share_net_begin=1, share_net_end=2):
+    def __init__(self, arch='resnet50', share_net_begin=1,share_net_end=2):
         super(Midshare_module, self).__init__()
 
         model_v = resnet50(pretrained=True,
@@ -148,7 +146,7 @@ class Midshare_module(nn.Module):
             self.visible.maxpool = model_v.maxpool
             if self.share_net >= 1:
                 for i in range(self.share_net, self.share_net_end):
-                    setattr(self.visible, 'layer' + str(i), getattr(model_v, 'layer' + str(i)))
+                    setattr(self.visible,'layer'+str(i), getattr(model_v,'layer'+str(i)))
 
     def forward(self, x):
         if self.share_net == 0:
@@ -156,9 +154,8 @@ class Midshare_module(nn.Module):
         else:
             if self.share_net >= 1:
                 for i in range(self.share_net, self.share_net_end):
-                    x = getattr(self.visible, 'layer' + str(i))(x)
+                    x = getattr(self.visible, 'layer'+str(i))(x)
             return x
-
 
 # class integrating_net(nn.Module):
 #     def __init__(self, arch='resnet50', share_net_begin=1,share_net_end=2):
@@ -211,7 +208,7 @@ class thermal_module(nn.Module):
                            last_conv_stride=1, last_conv_dilation=1)
         # avg pooling to global pooling
         self.share_net = share_net
-
+        
         if self.share_net == 0:
             pass
         else:
@@ -221,8 +218,8 @@ class thermal_module(nn.Module):
             self.thermal.relu = model_t.relu
             self.thermal.maxpool = model_t.maxpool
             if self.share_net > 1:
-                for i in range(1, self.share_net):
-                    setattr(self.thermal, 'layer' + str(i), getattr(model_t, 'layer' + str(i)))
+                for i in range(1, self.share_net):               
+                    setattr(self.thermal,'layer'+str(i), getattr(model_t,'layer'+str(i)))
 
     def forward(self, x):
         if self.share_net == 0:
@@ -234,8 +231,8 @@ class thermal_module(nn.Module):
             x = self.thermal.maxpool(x)
 
             if self.share_net > 1:
-                for i in range(1, self.share_net):
-                    x = getattr(self.thermal, 'layer' + str(i))(x)
+                for i in range(1, self.share_net):           
+                    x = getattr(self.thermal, 'layer'+str(i))(x)             
             return x
 
 
@@ -247,7 +244,7 @@ class base_resnet(nn.Module):
                               last_conv_stride=1, last_conv_dilation=1)
         # avg pooling to global pooling
         model_base.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.share_net = share_net
+        self.share_net = share_net       
         if self.share_net == 0:
             self.base = model_base
         else:
@@ -257,7 +254,7 @@ class base_resnet(nn.Module):
                 pass
             else:
                 for i in range(self.share_net, 5):
-                    setattr(self.base, 'layer' + str(i), getattr(model_base, 'layer' + str(i)))
+                    setattr(self.base,'layer'+str(i), getattr(model_base,'layer'+str(i)))
 
     def forward(self, x):
         if self.share_net == 0:
@@ -275,17 +272,19 @@ class base_resnet(nn.Module):
             return x
         else:
             for i in range(self.share_net, 5):
-                x = getattr(self.base, 'layer' + str(i))(x)
+                x = getattr(self.base, 'layer'+str(i))(x)
             return x
 
 
+
 class embed_net(nn.Module):
-    def __init__(self, class_num, no_local='off', gm_pool='on', arch='resnet50', share_net=1, share_net_end=2, pcb='on',
-                 local_feat_dim=256, num_strips_first=1, num_strips_second=2):
+    def __init__(self,  class_num, no_local= 'off', gm_pool = 'on', arch='resnet50', share_net=1,share_net_end=2, pcb='on',local_feat_dim=256, num_strips_first=1,num_strips_second=2):
         super(embed_net, self).__init__()
 
-        self.thermal_module = thermal_module(arch=arch, share_net=share_net)
-        self.visible_module = visible_module(arch=arch, share_net=share_net)
+        self.thermal_module1 = thermal_module(arch=arch, share_net=share_net)
+        self.thermal_module2 = thermal_module(arch=arch, share_net=share_net)
+        self.visible_module1 = visible_module(arch=arch, share_net=share_net)
+        self.visible_module2 = visible_module(arch=arch, share_net=share_net)
         self.Midshare_resnet1 = Midshare_module(arch=arch, share_net_begin=share_net, share_net_end=share_net_end)
         self.Midshare_resnet2 = Midshare_module(arch=arch, share_net_begin=share_net, share_net_end=share_net_end)
         self.local1 = base_resnet(arch=arch, share_net=share_net_end)
@@ -294,8 +293,9 @@ class embed_net(nn.Module):
 
         self.non_local = no_local
         self.pcb = pcb
-        if self.non_local == 'on':
+        if self.non_local =='on':
             pass
+
 
         pool_dim = 2048
         self.l2norm = Normalize(2)
@@ -339,7 +339,7 @@ class embed_net(nn.Module):
                 init.normal_(fc.weight, std=0.001)
                 init.constant_(fc.bias, 0)
                 self.fc_second.append(fc)
-            ####################################################################
+        ####################################################################
 
             self.local_conv_third = nn.ModuleList()
             for _ in range(6):
@@ -357,7 +357,7 @@ class embed_net(nn.Module):
                 init.normal_(fc.weight, std=0.001)
                 init.constant_(fc.bias, 0)
                 self.fc_third.append(fc)
-
+        
         else:
             self.bottleneck = nn.BatchNorm1d(pool_dim)
             self.bottleneck.bias.requires_grad_(False)  # no shift
@@ -379,37 +379,37 @@ class embed_net(nn.Module):
             x_the_empty = x2
             if random_number1 == 0:
                 x_fused_vis = torch.cat((x1_avg, x1_avg, x1_avg), 1)
-                x_fused_vis = self.visible_module(x_fused_vis)
-                x_fused_the = self.thermal_module(x_the_empty)
+                x_fused_vis = self.visible_module1(x_fused_vis)
+                x_fused_the = self.thermal_module1(x_the_empty)
                 x_fused = torch.cat((x_fused_vis, x_fused_the), 0)
             elif random_number1 == 1:
                 x_fused_the = torch.cat((x2_avg, x2_avg, x2_avg), 1)
-                x_fused_vis = self.visible_module(x_vis_empty)
-                x_fused_the = self.thermal_module(x_fused_the)
+                x_fused_vis = self.visible_module1(x_vis_empty)
+                x_fused_the = self.thermal_module1(x_fused_the)
                 x_fused = torch.cat((x_fused_vis, x_fused_the), 0)
 
-            x1 = self.visible_module(x1)
-            x2 = self.thermal_module(x2)
+            x1 = self.visible_module2(x1)
+            x2 = self.thermal_module2(x2)
             x = torch.cat((x1, x2), 0)
 
         elif modal == 1:
-            x = self.visible_module(x1)
+            x = self.visible_module2(x1)
             x_fused_vis = torch.cat((x1_avg, x1_avg, x1_avg), 1)
-            x_fused = self.visible_module(x_fused_vis)
+            x_fused = self.visible_module1(x_fused_vis)
 
 
         elif modal == 2:
-            x = self.thermal_module(x2)
+            x = self.thermal_module2(x2)
             x_fused_the = torch.cat((x2_avg, x2_avg, x2_avg), 1)
-            x_fused = self.thermal_module(x_fused_the)
+            x_fused = self.thermal_module1(x_fused_the)
 
         # shared block
         if self.non_local == 'on':
             pass
         else:
             if random_number2 == 0:
-                x1 = self.Midshare_resnet1(x)
-                x2 = self.Midshare_resnet2(x_fused)
+                x1 = self.Midshare_resnet1(x_fused)
+                x2 = self.Midshare_resnet2(x)
             else:
                 x1 = self.Midshare_resnet1(x_fused)
                 x2 = self.Midshare_resnet2(x)
@@ -424,7 +424,7 @@ class embed_net(nn.Module):
             x_local2 = self.local2(x2)
             half = int(x1.size(0) / 2)
             if modal == 0:
-                if random_number1 == 0:
+                if   random_number1   == 0:
                     x_fused = torch.cat((x1[0: half, :, :, :], x2[half: 2 * half, :, :, :]), 0)
                 elif random_number1 == 1:
                     x_fused = torch.cat((x2[0: half, :, :, :], x1[half: 2 * half, :, :, :]), 0)
@@ -433,6 +433,9 @@ class embed_net(nn.Module):
             elif modal == 2:
                 x_fused = x2
             x_local3 = self.local3(x_fused)
+
+
+
 
         if self.pcb == 'on':
             feat1 = x_local1
@@ -456,7 +459,7 @@ class embed_net(nn.Module):
 
             feat_all_first = [lf for lf in local_feat_first]
             feat_all_first = torch.cat(feat_all_first, dim=1)
-            ##############################################################################
+##############################################################################
             feat1 = x_local2
             assert feat1.size(2) % self.num_stripes_fs == 0
             stripe = int(feat1.size(2) / self.num_stripes_fs)
@@ -479,8 +482,8 @@ class embed_net(nn.Module):
             feat_all_second = [lf for lf in local_feat_second]
             feat_all_second = torch.cat(feat_all_second, dim=1)
 
-            ##########################################
-            #######################################################################################
+##########################################
+#######################################################################################
             feat1 = x_local3
             assert feat1.size(2) % self.num_stripes_fs == 0
             stripe_1 = int(feat1.size(2) / 6)
@@ -503,10 +506,11 @@ class embed_net(nn.Module):
             feat_all_third = [lf for lf in local_feat_third]
             feat_all_third = torch.cat(feat_all_third, dim=1)
 
+
             if self.training:
-                return local_feat_first, logits_first, feat_all_first, local_feat_second, logits_second, feat_all_second, local_feat_third, logits_third, feat_all_third
+                return local_feat_first,logits_first,feat_all_first,local_feat_second,logits_second,feat_all_second,local_feat_third,logits_third,feat_all_third
             else:
-                predict = torch.cat([feat_all_first, feat_all_second, feat_all_third], dim=1)
+                predict = torch.cat([feat_all_first,feat_all_second,feat_all_third], dim=1)
                 return self.l2norm(predict)
         else:
             if self.gm_pool == 'on':
